@@ -1,9 +1,9 @@
 import os.path
-try:
-    import unittest2 as unittest
-except ImportError:
+import sys
+if sys.version_info >= (2, 7):
     import unittest
-
+else:
+    import unittest2 as unittest
 
 def get_tests():
     start_dir = os.path.dirname(__file__)
