@@ -3,6 +3,7 @@ try:
     from urllib.parse import urlsplit, urlunsplit
 except ImportError:
     from urlparse import urlsplit, urlunsplit
+from six import u, b, PY3, iteritems
 
 import requests
 
@@ -37,7 +38,7 @@ class ResourceAttributesMixin(object):
             raise AttributeError(item)
 
         kwargs = {}
-        for key, value in self._store.iteritems():
+        for key, value in iteritems(self._store):
             kwargs[key] = value
 
         kwargs.update({"base_url": url_join(self._store["base_url"], item)})
@@ -72,7 +73,7 @@ class Resource(ResourceAttributesMixin, object):
             return self
 
         kwargs = {}
-        for key, value in self._store.iteritems():
+        for key, value in iteritems(self._store):
             kwargs[key] = value
 
         if id is not None:
