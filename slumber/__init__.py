@@ -3,7 +3,7 @@ try:
     from urllib.parse import urlsplit, urlunsplit
 except ImportError:
     from urlparse import urlsplit, urlunsplit
-from six import u, b, PY3, iteritems
+from six import u, b, PY3, iteritems, string_types, text_type
 
 import requests
 
@@ -17,9 +17,62 @@ def url_join(base, *args):
     """
     Helper function to join an arbitrary number of url segments together.
     """
-    scheme, netloc, path, query, fragment = urlsplit(base)
-    path = path if len(path) else "/"
-    path = posixpath.join(path, *[('%s' % x) for x in args])
+    # Python2 urlsplit can't handle bytearray (TypeError: unhashable type)
+    if isinstance(base, bytearray):
+        base = bytes(base)
+
+    if isinstance(base, bytes):
+        needbytes = True
+    else:
+        needbytes = False
+
+    try:
+        scheme, netloc, path, query, fragment = urlsplit(base)
+    except UnicodeDecodeError:
+        # PY3 urlsplit uses implicit (ASCII) encoding to decode bytes, but we
+        # use latin1 since re-encoding after urlsplit exactly reverses decode
+        # for any ASCII superset (needed  for posixpath.join to work,
+        # since EBCDIC codes / as \x61 [a]).  This "trick" allows use of ASCII
+        # supersets for bytes URL in the original base.
+        base = base.decode('latin1')
+        scheme, netloc, path, query, fragment = (x.encode('latin1')
+                                                 for x in urlsplit(base))
+    if not len(path):
+        if needbytes:
+            path = b('/')
+        else:
+            path = u('/')
+    newargs = []
+    try:
+        for x in args:
+            if needbytes:
+                # Although they don't need conversion, bytes args must be ASCII
+                # as we cannot know they use the same encoding as base URL.
+                if isinstance(x, bytes) or isinstance(x, bytearray):
+                    newargs.append(x.decode('ascii').encode('ascii'))
+                else:
+                    if not isinstance(x, text_type):
+                        x = '%s' % x
+                    newargs.append(x.encode('ascii'))
+            else:
+                if isinstance(x, bytes) or isinstance(x, bytearray):
+                    newargs.append(x.decode('ascii'))
+                else:
+                    if not isinstance(x, text_type):
+                        x = '%s' % x
+                    newargs.append(x)
+        path = posixpath.join(path, *newargs)
+        if PY3 and needbytes:
+            # PY3 urlunsplit uses implicit (ASCII) encoding to decode bytes,
+            # but we use latin1 since re-encoding after urlunsplit exactly
+            # reverses decode for any ASCII superset (needed for posixpath.join
+            # to work, since EBCDIC codes / as \x61 [a]).  This "trick" allows
+            # use of ASCII supersets for bytes URLs (but not args, for safety).
+            return urlunsplit([x.decode('latin1') for x in
+                               [scheme, netloc, path, query, fragment]]
+                              ).encode('latin1')
+    except UnicodeError:
+        raise TypeError("Can't mix non-ASCII bytes and strings in URL paths.")
     return urlunsplit([scheme, netloc, path, query, fragment])
 
 
