@@ -49,24 +49,97 @@ class UtilsTestCase(unittest.TestCase):
         self.assertEqual(slumber.url_join("http://example.com/", "test/", "example/"), "http://example.com/test/example/")
 
     def test_url_join_encoded_unicode(self):
-        expected = six.u("http://example.com/tǝst/")
-
-        if expected.__class__.__name__ == "unicode":
+        # u"ǝ" == u"\u01dd", u"\u01dd".encode('utf-8') == b"\xc7\x9d"
+        expected = six.u("http://example.com/r\u01dd/test")
+        if (isinstance(expected, six.text_type)):
             expected = expected.encode('utf-8')
 
-        url = slumber.url_join("http://example.com/", six.u("tǝst/"))
-        if url.__class__.__name__ == "unicode":
+        url = slumber.url_join(bytearray(six.b("http://example.com/r\xc7\x9d")),
+                               six.b("test"))
+        if (isinstance(url, six.text_type)):
             url = url.encode('utf-8')
 
         self.assertEqual(url, expected)
 
-        url = slumber.url_join("http://example.com/", six.u("tǝst/"))
-        if url.__class__.__name__ == "unicode":
+        url = slumber.url_join(six.b("http://example.com/r\xc7\x9d"),
+                               bytearray(six.b("test")))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+        # check that non-ASCII args with bytes base URL raise TypeError
+        self.assertRaises(TypeError, slumber.url_join,
+                          six.b("http://example.com"), six.b("r\xc7\x9d"))
+            
+        expected = six.u("http://example.com/re/test")
+        if (isinstance(expected, six.text_type)):
+            expected = expected.encode('utf-8')
+
+        url = slumber.url_join(bytearray(six.b("http://example.com/re")),
+                               bytearray(six.b("test")))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+        url = slumber.url_join(six.b("http://example.com"),
+                               six.b("re/test"))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+    def test_url_join_mixed_unicode(self):
+        # u"ǝ" == u"\u01dd", u"\u01dd".encode('utf-8') == b"\xc7\x9d"
+        expected = six.u("http://example.com/r\u01dd/te/st")
+        if (isinstance(expected, six.text_type)):
+            expected = expected.encode('utf-8')
+
+        url = slumber.url_join(six.b("http://example.com/r\xc7\x9d"),
+                               bytearray(six.b("te")),
+                               six.u("st"))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+        url = slumber.url_join(six.u("http://example.com"),
+                               six.u("r\u01dd/te"),
+                               bytearray(six.b("st")))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+        # check that non-ASCII args needing conversion raise TypeError
+        self.assertRaises(TypeError, slumber.url_join,
+                          six.u("http://example.com"), six.b("r\xc7\x9d"))
+
+        self.assertRaises(TypeError, slumber.url_join,
+                          six.b("http://example.com"), six.u("r\u01dd"))
+
+        expected = six.u("http://example.com/te/st")
+        if (isinstance(expected, six.text_type)):
+            expected = expected.encode('utf-8')
+
+        url = slumber.url_join(bytearray(six.b("http://example.com/")),
+                               six.b("te"),
+                               six.u("st"))
+        if (isinstance(url, six.text_type)):
+            url = url.encode('utf-8')
+
+        self.assertEqual(url, expected)
+
+        url = slumber.url_join(six.u("http://example.com/"),
+                               six.u("te"),
+                               six.b("st"))
+        if (isinstance(url, six.text_type)):
             url = url.encode('utf-8')
 
         self.assertEqual(url, expected)
 
     def test_url_join_decoded_unicode(self):
-        url = slumber.url_join("http://example.com/", six.u("tǝst/"))
-        expected = six.u("http://example.com/tǝst/")
+        url = slumber.url_join(six.u("http://examplǝ.com/"), six.u("tǝst/"))
+        expected = six.u("http://examplǝ.com/tǝst/")
         self.assertEqual(url, expected)
